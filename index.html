@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>プロ級 5カードポーカー</title>
+<style>
+:root{
+  --bg-1: linear-gradient(180deg,#071026 0%, #0b1426 50%);
+  --bg-2: radial-gradient(600px 300px at 10% 10%, rgba(255,204,51,0.04), transparent);
+  --accent:#ffcc33; --muted:#9aa3b2; --glass: rgba(255,255,255,0.06);
+  --table-bg: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  --card-bg:#ffffff;
+  font-family: Inter, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg-1),var(--bg-2);color:#e6eef8}
+.app{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px;}
+.table{width:100%; max-width:1100px; background:var(--table-bg); border-radius:16px; padding:20px; box-shadow:0 8px 30px rgba(2,6,23,0.7); display:grid; grid-template-columns: 1fr 360px; gap:20px;}
+.header{display:flex; gap:12px; align-items:center; margin-bottom:12px;}
+.brand{font-weight:700; font-size:18px; color:var(--accent)}
+.controls{display:flex; gap:8px; margin-left:auto; align-items:center}
+.btn{background:var(--glass); color:var(--accent); border:1px solid rgba(255,255,255,0.04); padding:8px 12px; border-radius:10px; cursor:pointer; transition:all .18s; font-weight:600;}
+.btn:hover{transform:translateY(-3px); box-shadow:0 6px 18px rgba(0,0,0,0.45)}
+.btn:disabled{opacity:0.5; cursor:not-allowed}
+.primary{background:linear-gradient(90deg,#ffda7a,#ffd24a); color:#0a0820; border:none; box-shadow:0 6px 20px rgba(255,210,74,0.12)}
+.sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;}
+.player-area{padding:12px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent); min-height:360px; display:flex; flex-direction:column; gap:12px;}
+.board-row{display:flex; gap:12px; align-items:center; justify-content:center; padding:10px}
+.card{width:110px; height:150px; border-radius:12px; background:linear-gradient(180deg,#fff,#f7f7f7); box-shadow:0 10px 30px rgba(3,7,18,0.6); display:flex; flex-direction:column; justify-content:space-between; padding:10px; font-weight:700; color:#112; position:relative; transform-origin:center; transition:transform .28s cubic-bezier(.2,.9,.3,1), box-shadow .18s; user-select:none;}
+.card.back{background:linear-gradient(180deg,#0b5ea8,#07497d); color:#fff; display:flex; align-items:center; justify-content:center; font-size:22px}
+.card.suit-red .pips{color:#b0252b}
+.rank{font-size:18px}
+.suit{font-size:22px}
+.card.hold{outline:4px solid rgba(255,204,51,0.12); transform:translateY(-8px) scale(1.02)}
+.card.small{width:86px;height:120px}
+.hold-toggle{position:absolute; right:8px; bottom:8px; background:rgba(2,6,23,0.6); color:var(--accent); padding:4px 8px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer}
+.info{font-size:13px; color:var(--muted)}
+.bet-row{display:flex; gap:8px; align-items:center; justify-content:space-between}
+.bet-input{width:100%; display:flex; gap:8px; align-items:center}
+.input{background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--accent); padding:8px 10px; border-radius:10px; width:100%; text-align:right}
+.small{font-size:13px}
+.hands-list{display:flex; flex-direction:column; gap:6px; max-height:220px; overflow:auto}
+.result{font-weight:800; color:var(--accent); font-size:16px; text-align:center; padding:6px 0}
+.footer{display:flex; gap:8px; justify-content:space-between; align-items:center; color:var(--muted); font-size:13px}
+.fade-in{animation:fadeIn .6s both}
+@keyframes fadeIn{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+.badge{background:rgba(255,255,255,0.03); padding:6px 10px; border-radius:999px; font-weight:700}
+.center{display:flex; align-items:center; justify-content:center}
+.empty{opacity:0.45}
+.hand-highlight{background:linear-gradient(90deg, rgba(255,204,51,0.08), rgba(255,255,255,0.01)); border-radius:10px; padding:8px}
+.rules{font-size:13px; color:var(--muted); line-height:1.3}
+.table-select-overlay{position:fixed; inset:0; background:rgba(3,6,16,0.6); display:flex; align-items:center; justify-content:center; z-index:60; overflow:auto}
+.table-card{background:linear-gradient(180deg, #07142a, #091a2f); border-radius:12px; padding:22px; width:720px; color:#eaf3ff; box-shadow:0 20px 50px rgba(2,6,23,0.8); max-height:80vh; overflow-y:auto}
+.table-grid{display:flex; gap:12px; margin-top:12px; flex-wrap:wrap}
+.table-btn{flex:1 1 140px; padding:12px; border-radius:10px; text-align:center; cursor:pointer; border:1px solid rgba(255,255,255,0.04); background:rgba(255,255,255,0.01); transition:all .2s}
+.table-btn:hover{background:rgba(255,255,255,0.03); transform:translateY(-2px)}
+.table-btn.active{outline:3px solid rgba(255,204,51,0.12); transform:translateY(-4px); background:rgba(255,204,51,0.05)}
+.theme-row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start}
+.theme-swatch{width:50px;height:40px;border-radius:8px; cursor:pointer; border:1px solid rgba(255,255,255,0.04); transition:all .2s}
+.theme-swatch:hover{transform:scale(1.05)}
+.store-overlay{position:fixed; inset:0; background:rgba(2,6,23,0.7); display:flex; align-items:center; justify-content:center; z-index:70; overflow:auto}
+.store-card{background:linear-gradient(180deg,#071421,#0b2630); border-radius:12px; padding:20px; width:760px; color:#eaf3ff; max-height:90vh; overflow-y:auto}
+.store-grid{display:flex; gap:12px; margin-top:12px; flex-wrap:wrap}
+.store-item{flex:1 1 160px; background:rgba(255,255,255,0.02); padding:12px; border-radius:10px; text-align:center; border:1px solid rgba(255,255,255,0.03); transition:all .2s}
+.store-item:hover{background:rgba(255,255,255,0.04)}
+.store-item.owned{outline:2px solid rgba(100,255,160,0.12); background:rgba(100,255,160,0.05)}
+.store-preview{width:60px; height:40px; border-radius:8px; margin:8px auto; border:1px solid rgba(255,255,255,0.06)}
+@media(max-width:980px){.table{grid-template-columns:1fr; padding:12px}.sidebar{order:2}.store-card, .table-card{width:90vw; max-width:600px}}
+
+/* トースト（ゲーム内通知） */
+.toast-container{position:fixed; right:20px; top:20px; z-index:140; display:flex; flex-direction:column; gap:10px; pointer-events:none}
+.toast{pointer-events:auto; min-width:180px; max-width:360px; background:rgba(0,0,0,0.7); color:#fff; padding:10px 14px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.6); font-weight:700; opacity:0; transform:translateY(-6px); animation:toastIn .18s forwards}
+.toast.success{background:linear-gradient(90deg,#4adf78,#2bb673); color:#08120a}
+.toast.error{background:linear-gradient(90deg,#ff7b7b,#ff4b4b); color:#fff}
+.toast.info{background:linear-gradient(90deg,#223244,#1a2a3a); color:var(--accent)}
+@keyframes toastIn{to{opacity:1; transform:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="table fade-in" role="application" aria-label="5カードポーカー">
+    <div>
+      <div class="header">
+        <div class="brand">5カードポーカー — プロ級</div>
+        <div class="info" id="tableInfo">テーブルを選択してください</div>
+        <div class="controls">
+          <button id="storeBtn" class="btn">ストア</button>
+          <button id="changeTableBtn" class="btn" disabled>テーブル変更</button>
+          <button id="newRound" class="btn" disabled>新しいラウンド</button>
+        </div>
+      </div>
+
+      <div class="player-area" id="gameArea">
+        <div class="board-row" id="dealerRow" aria-live="polite"></div>
+        <div class="board-row" id="playerRow" aria-live="polite"></div>
+
+        <div class="center">
+          <div id="result" class="result empty">テーブルを選んでからディールしてください</div>
+        </div>
+
+        <div style="display:flex; gap:12px; justify-content:center; margin-top:6px;">
+          <div class="badge" id="handLabel">-</div>
+        </div>
+
+        <div style="display:flex; gap:12px; justify-content:center; margin-top:6px;">
+          <div class="info small" id="turnLabel">ターン: -</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar" aria-label="サイドバー">
+      <div>
+        <div style="display:flex; gap:8px; align-items:center; justify-content:space-between">
+          <div><strong>残高</strong></div>
+          <div class="badge" id="balance">1000</div>
+        </div>
+        <div class="bet-row" style="margin-top:10px">
+          <div style="width:100%">
+            <label class="small">ベット</label>
+            <div class="bet-input">
+              <input id="betAmount" class="input" type="number" min="1" step="1" value="50" disabled />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button id="dealBtn" class="btn primary" disabled>ディール</button>
+          <button id="drawBtn" class="btn" disabled>ドロー</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center;margin-bottom:8px">
+          <strong>プレイ履歴</strong><span class="small" id="stats">勝0 敗0 引0</span>
+        </div>
+        <div class="hands-list" id="history"></div>
+      </div>
+
+      <div class="rules">
+        <strong>ルール（3ターン 5カードドロー）</strong>
+        <ul style="margin:6px 0 0 18px; padding:0">
+          <li>ディールで5枚配られます</li>
+          <li>各ターンで保持したいカードをクリックして「ドロー」</li>
+          <li>3ターン終了後にCPUとショーダウン</li>
+        </ul>
+      </div>
+
+      <div id="themeArea" style="margin-top:6px; display:none">
+        <div><strong>テーマ（購入済みのみ）</strong></div>
+        <div class="theme-row" id="themes"></div>
+      </div>
+
+      <div id="cardSkinArea" style="margin-top:6px; display:none">
+        <div><strong>カードスキン（購入済みのみ）</strong></div>
+        <div class="theme-row" id="cardSkins"></div>
+      </div>
+
+      <div class="footer">
+        <div class="small">CPUはテーブルに応じて強さが変化します</div>
+        <div class="small">© プライベート</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Toast notification container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Table selection overlay -->
+<div id="tableOverlay" class="table-select-overlay" aria-hidden="false">
+  <div class="table-card">
+    <h2 style="margin:0">テーブルを選択</h2>
+    <div class="info small" style="margin-top:6px">テーブルを選ぶとそのテーブルルール（ミニマム・CPU強度）が適用されます</div>
+    <div class="table-grid" id="tableGrid"></div>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+      <button id="tableConfirm" class="btn primary" disabled>決定して開始</button>
+    </div>
+  </div>
+</div>
+
+<!-- Store overlay -->
+<div id="storeOverlay" class="store-overlay" style="display:none">
+  <div class="store-card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0">ストア</h2>
+      <div><button id="closeStore" class="btn">閉じる</button></div>
+    </div>
+    <div class="info small" style="margin-top:6px">背景テーマ、カードスキン、グラデーションを購入できます</div>
+    <div class="store-grid" id="storeGrid"></div>
+  </div>
+</div>
+
+<script>
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const redSuits = new Set(['♥','♦']);
+
+const TABLES = [
+  {id:'t50', name:'$50', betFixed:50, min:50, difficulty:0},
+  {id:'t100', name:'$100', betFixed:100, min:100, difficulty:1},
+  {id:'t500', name:'$500', betFixed:500, min:500, difficulty:2},
+  {id:'t1000', name:'$1000', betFixed:1000, min:1000, difficulty:3},
+  {id:'t2000', name:'$2000', betFixed:2000, min:2000, difficulty:3},
+  {id:'t5000', name:'$5000', betFixed:5000, min:5000, difficulty:4},
+  {id:'free', name:'フリーテーブル', betFixed:null, min:100, difficulty:4, requiresBalance:100}
+];
+
+const STORE_ITEMS = [
+  {key:'warm', name:'Warm テーマ', cost:300, type:'bg', desc:'暖色系'},
+  {key:'emerald', name:'Emerald テーマ', cost:500, type:'bg', desc:'エメラルド系'},
+  {key:'midnight', name:'Midnight テーマ', cost:1000, type:'bg', desc:'深夜ブルー'},
+  {key:'grad_gold', name:'Gold グラデ', cost:2000, type:'bg', desc:'ゴールドグラデーション'},
+  {key:'grad_purple', name:'Purple グラデ', cost:5000, type:'bg', desc:'パープルグラデーション'},
+  {key:'card_neon', name:'Neon カード', cost:300, type:'card', desc:'ネオンカード'},
+  {key:'card_gold', name:'Gold カード', cost:1000, type:'card', desc:'ゴールドカード'},
+  {key:'card_rainbow', name:'Rainbow カード', cost:2000, type:'card', desc:'レインボーカード'}
+];
+
+let state = {
+  deck:[], player:[], dealer:[], hold: new Set(), stage:'idle', balance:1000, bet:50, stats:{win:0,lose:0,tie:0},
+  turn:0, selectedTable:null, theme:'classic', cardSkin:'classic', purchases: { classic: true }
+};
+
+const $ = id => document.getElementById(id);
+const playerRow = $('playerRow'), dealerRow = $('dealerRow'), resultEl = $('result'), handLabel = $('handLabel'), historyEl = $('history');
+const balanceEl = $('balance'), betInput = $('betAmount'), dealBtn = $('dealBtn'), drawBtn = $('drawBtn'),
+      newRoundBtn = $('newRound'), changeTableBtn = $('changeTableBtn'), statsEl = $('stats'), turnLabel = $('turnLabel');
+const tableOverlay = $('tableOverlay'), tableGrid = $('tableGrid'), tableConfirm = $('tableConfirm');
+const tableInfo = $('tableInfo'), storeBtn = $('storeBtn'), storeOverlay = $('storeOverlay'), storeGrid = $('storeGrid'), closeStore = $('closeStore');
+const themeContainer = $('themes'), cardSkinContainer = $('cardSkins'), themeArea = $('themeArea'), cardSkinArea = $('cardSkinArea');
+
+function mkDeck(){ const d=[]; for(const s of SUITS) for(const r of RANKS) d.push({suit:s,rank:r,rankIndex:RANKS.indexOf(r)}); return d; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ let j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function draw(n){ return state.deck.splice(0,n); }
+function resetPanes(){ playerRow.innerHTML=''; dealerRow.innerHTML=''; }
+
+function renderCard(card, idx, owner='player'){
+  const el = document.createElement('div');
+  el.className = 'card ' + (redSuits.has(card.suit)?'suit-red':'');
+  el.dataset.idx = idx;
+  
+  // apply card skin styles
+  if(state.cardSkin === 'card_neon'){
+    el.style.background = 'linear-gradient(180deg, #00ff88, #0088ff)';
+    el.style.color = '#000';
+  } else if(state.cardSkin === 'card_gold'){
+    el.style.background = 'linear-gradient(180deg, #ffd700, #ffed4e)';
+    el.style.color = '#333';
+  } else if(state.cardSkin === 'card_rainbow'){
+    el.style.background = 'linear-gradient(180deg, #ff0080, #ff8c00, #40e0d0, #0080ff)';
+    el.style.color = '#fff';
+  }
+  
+  el.innerHTML = `<div class="rank">${card.rank}</div><div class="suit" aria-hidden="true">${card.suit}</div>`;
+  if(owner==='player'){
+    const btn = document.createElement('div');
+    btn.className='hold-toggle';
+    btn.textContent = state.hold.has(idx) ? '保持中' : '保持';
+    btn.addEventListener('click', ()=> toggleHold(idx, el));
+    el.appendChild(btn);
+    el.addEventListener('click', ()=> toggleHold(idx, el));
+  }
+  return el;
+}
+function toggleHold(idx, el){
+  if(!['turn'].includes(state.stage)) return;
+  if(state.hold.has(idx)){ state.hold.delete(idx); el.classList.remove('hold'); el.querySelector('.hold-toggle').textContent='保持'; }
+  else { state.hold.add(idx); el.classList.add('hold'); el.querySelector('.hold-toggle').textContent='保持中'; }
+}
+
+function render(){
+  resetPanes();
+  state.dealer.forEach((c,i)=>{
+    let el;
+    if(state.stage==='show') el = renderCard(c,i,'dealer');
+    else { el = document.createElement('div'); el.className='card back'; el.textContent='CPU'; }
+    dealerRow.appendChild(el);
+  });
+  state.player.forEach((c,i)=> playerRow.appendChild(renderCard(c,i,'player')));
+  balanceEl.textContent = state.balance;
+  betInput.value = state.bet;
+  statsEl.textContent = `勝${state.stats.win} 敗${state.stats.lose} 引${state.stats.tie}`;
+  turnLabel.textContent = state.stage==='turn' ? `ターン: ${state.turn}/3` : 'ターン: -';
+  historyEl.scrollTop = historyEl.scrollHeight;
+  const tableSelected = !!state.selectedTable;
+  $('dealBtn').disabled = !tableSelected || state.stage!=='idle';
+  betInput.disabled = !(tableSelected && !state.selectedTable.betFixed);
+  newRoundBtn.disabled = !tableSelected;
+  changeTableBtn.disabled = !tableSelected;
+  tableInfo.textContent = state.selectedTable ? `${state.selectedTable.name}（CPU強度 ${state.selectedTable.difficulty}）` : 'テーブルを選択してください';
+  renderThemeList();
+  renderCardSkinList();
+}
+
+function buildTableGrid(){
+  tableGrid.innerHTML = '';
+  TABLES.forEach(t=>{
+    const btn = document.createElement('div');
+    btn.className = 'table-btn';
+    btn.innerHTML = `<div style="font-weight:700">${t.name}</div><div class="small" style="opacity:0.8; margin-top:6px">${t.betFixed? `固定ベット ${t.betFixed}` : `ミニマム ${t.min}（VIP）`}</div>`;
+    btn.addEventListener('click', ()=> {
+      Array.from(tableGrid.children).forEach(c=>c.classList.remove('active'));
+      btn.classList.add('active');
+      tableConfirm.disabled = false;
+      tableConfirm.dataset.sel = t.id;
+    });
+    tableGrid.appendChild(btn);
+  });
+}
+buildTableGrid();
+
+/* --- ゲーム内トースト通知 --- */
+function showToast(msg, type='info', duration=3500){
+  const container = $('toastContainer');
+  if(!container) return;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  container.appendChild(t);
+  // 自動削除
+  setTimeout(()=> {
+    t.style.transition = 'opacity .25s, transform .25s';
+    t.style.opacity = '0';
+    t.style.transform = 'translateY(-8px)';
+    setTimeout(()=> { try{ container.removeChild(t); }catch(e){} }, 260);
+  }, duration);
+  return t;
+}
+
+// tableConfirm handler
+tableConfirm.addEventListener('click', ()=>{
+  const id = tableConfirm.dataset.sel;
+  const t = TABLES.find(x=>x.id===id);
+  if(!t) return;
+  if(t.requiresBalance && state.balance < (t.requiresBalance || 0)){ showToast(`${t.name} の利用には最低${t.requiresBalance}コイン必要です`, 'error'); return; }
+  state.selectedTable = {...t};
+  if(t.betFixed) { state.bet = t.betFixed; betInput.value = state.bet; betInput.disabled = true; }
+  else { betInput.disabled = false; betInput.value = Math.min(state.balance, 5000); state.bet = Number(betInput.value); }
+  tableOverlay.style.display = 'none';
+  saveToLocal();
+  render();
+});
+
+changeTableBtn.addEventListener('click', ()=>{
+  tableOverlay.style.display = 'flex';
+  tableConfirm.disabled = true;
+  Array.from(tableGrid.children).forEach((btn, idx)=>{
+    if(state.selectedTable && TABLES[idx].id === state.selectedTable.id) btn.classList.add('active');
+  });
+});
+
+const THEME_MAP = {
+  classic: {bg1:'linear-gradient(180deg,#071026 0%, #0b1426 50%)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(255,204,51,0.04), transparent)'},
+  warm: {bg1:'linear-gradient(180deg,#2b0f05 0%, #5c1b07 50%)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(255,120,20,0.06), transparent)'},
+  emerald: {bg1:'linear-gradient(180deg,#042b22 0%, #0b3f33 50%)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(20,200,120,0.04), transparent)'},
+  midnight: {bg1:'linear-gradient(180deg,#0b1630 0%, #071b3a 50%)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(150,170,255,0.03), transparent)'},
+  grad_gold: {bg1:'linear-gradient(180deg, #FFD700, #FFA500, #FF6347)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(255,215,0,0.08), transparent)'},
+  grad_purple: {bg1:'linear-gradient(180deg, #6A0DAD, #9932CC, #BA55D3)', bg2:'radial-gradient(600px 300px at 10% 10%, rgba(153,50,204,0.08), transparent)'}
+};
+
+function buildStore(){
+  storeGrid.innerHTML = '';
+  STORE_ITEMS.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'store-item' + (state.purchases[item.key] ? ' owned' : '');
+    
+    let previewHTML = '';
+    if(item.type === 'bg'){
+      const t = THEME_MAP[item.key] || {bg1:'#333', bg2:''};
+      previewHTML = `<div class="store-preview" style="background: ${t.bg1}"></div>`;
+    } else if(item.type === 'card'){
+      previewHTML = `<div class="store-preview" style="background: linear-gradient(180deg, var(--preview-bg1), var(--preview-bg2)); position:relative; overflow:hidden;">
+        <span style="position:absolute; top:5px; left:5px; font-weight:700; font-size:14px;">K</span>
+        <span style="position:absolute; bottom:5px; right:5px; font-weight:700; font-size:14px; transform:rotate(180deg);">♠</span>
+      </div>`;
+    }
+    
+    div.innerHTML = `<div style="font-weight:700">${item.name}</div><div class="small" style="opacity:0.9;margin-top:6px">${item.desc}</div>${previewHTML}<div style="margin-top:10px;font-weight:800">${item.cost} コイン</div><div style="margin-top:10px"><button class="btn buyBtn">${state.purchases[item.key] ? '購入済み' : '購入'}</button></div>`;
+    const btn = div.querySelector('.buyBtn');
+    btn.disabled = !!state.purchases[item.key];
+    // 購入確認ダイアログを廃止し、クリックで即購入（残高不足はトースト）
+    btn.addEventListener('click', ()=> {
+      if(state.balance < item.cost){ showToast('残高が足りません', 'error'); return; }
+      // そのまま購入処理
+      state.balance -= item.cost;
+      state.purchases[item.key] = true;
+      saveToLocal();
+      buildStore();
+      render();
+      showToast(`${item.name} を購入しました`, 'success');
+    });
+    storeGrid.appendChild(div);
+  });
+}
+storeBtn.addEventListener('click', ()=>{ buildStore(); storeOverlay.style.display='flex'; });
+closeStore.addEventListener('click', ()=> storeOverlay.style.display='none');
+
+function renderThemeList(){
+  themeContainer.innerHTML = '';
+  ['classic', 'warm', 'emerald', 'midnight', 'grad_gold', 'grad_purple'].forEach(key=>{
+    if(!state.purchases[key]) return;
+    const sw = document.createElement('div');
+    sw.className = 'theme-swatch';
+    sw.title = key;
+    const bg = THEME_MAP[key] || THEME_MAP.classic;
+    sw.style.background = bg.bg1;
+    sw.dataset.theme = key;
+    sw.addEventListener('click', ()=> applyTheme(key));
+    if(state.theme === key) sw.style.outline = '3px solid rgba(255,204,51,0.12)';
+    themeContainer.appendChild(sw);
+  });
+  themeArea.style.display = themeContainer.children.length > 0 ? 'block' : 'none';
+}
+
+function renderCardSkinList(){
+  cardSkinContainer.innerHTML = '';
+  ['classic', 'card_neon', 'card_gold', 'card_rainbow'].forEach(key=>{
+    if(!state.purchases[key]) return;
+    const sw = document.createElement('div');
+    sw.className = 'theme-swatch';
+    sw.title = key;
+    if(key === 'classic'){ sw.style.background = '#fff'; }
+    else if(key === 'card_neon'){ sw.style.background = 'linear-gradient(180deg, #00ff88, #0088ff)'; }
+    else if(key === 'card_gold'){ sw.style.background = 'linear-gradient(180deg, #ffd700, #ffed4e)'; }
+    else if(key === 'card_rainbow'){ sw.style.background = 'linear-gradient(180deg, #ff0080, #ff8c00, #40e0d0, #0080ff)'; }
+    sw.data_key = key;
+    sw.addEventListener('click', ()=> applyCardSkin(key));
+    if(state.cardSkin === key) sw.style.outline = '3px solid rgba(255,204,51,0.12)';
+    cardSkinContainer.appendChild(sw);
+  });
+  cardSkinArea.style.display = cardSkinContainer.children.length > 0 ? 'block' : 'none';
+}
+
+function applyTheme(key){
+  if(key !== 'classic' && !state.purchases[key]){ showToast('このテーマは未購入です。ストアで購入してください', 'info'); return; }
+  const t = THEME_MAP[key] || THEME_MAP.classic;
+  document.documentElement.style.setProperty('--bg-1', t.bg1);
+  document.documentElement.style.setProperty('--bg-2', t.bg2);
+  state.theme = key;
+  saveToLocal();
+  render();
+}
+function applyCardSkin(key){
+  if(key !== 'classic' && !state.purchases[key]){ showToast('このカードスキンは未購入です。ストアで購入してください', 'info'); return; }
+  state.cardSkin = key;
+  saveToLocal();
+  render();
+}
+
+function startDeal(){
+  if(!state.selectedTable) { showToast('テーブルを選択してください', 'info'); return; }
+  const minAllowed = state.selectedTable.min || 1;
+  const betVal = state.selectedTable.betFixed ? state.selectedTable.betFixed : Math.max(minAllowed, Math.min(state.balance, Number(betInput.value)||minAllowed));
+  if(betVal > state.balance){ showToast('残高不足', 'error'); return; }
+  state.bet = betVal;
+  state.balance -= state.bet;
+  state.deck = shuffle(mkDeck());
+  state.player = draw(5);
+  state.dealer = draw(5);
+  state.hold = new Set();
+  state.stage = 'turn';
+  state.turn = 1;
+  drawBtn.disabled = false;
+  dealBtn.disabled = true;
+  resultEl.textContent = `ターン ${state.turn} - カードを保持して「ドロー」`;
+  handLabel.textContent = '-';
+  render();
+}
+
+function evaluateHand(cards){
+  const ranks = cards.map(c=>c.rankIndex).sort((a,b)=>a-b);
+  const suits = cards.map(c=>c.suit);
+  const counts = {};
+  for(const r of ranks) counts[r]=(counts[r]||0)+1;
+  const countVals = Object.values(counts).sort((a,b)=>b-a);
+  const isFlush = new Set(suits).size===1;
+  let isStraight=false;
+  let isSeq = true;
+  for(let i=1;i<ranks.length;i++){ if(ranks[i] !== ranks[i-1]+1){ isSeq=false; break; } }
+  const aceLow = JSON.stringify(ranks) === JSON.stringify([0,1,2,3,12]);
+  if(isSeq || aceLow) isStraight = true;
+  const getName = (r)=>['','ハイカード','ペア','ツーペア','スリーカード','ストレート','フラッシャ','フルハウス','フォーカード','ストレートフラッシュ'][r] || '';
+  let rank=1; let tiebreak=[];
+  if(isStraight && isFlush){ rank=9; tiebreak=[Math.max(...ranks)]; }
+  else if(countVals[0]===4){ rank=8; const four=Number(Object.keys(counts).find(k=>counts[k]===4)); const kicker=Number(Object.keys(counts).find(k=>counts[k]===1)); tiebreak=[four,kicker]; }
+  else if(countVals[0]===3 && countVals[1]===2){ rank=7; const three=Number(Object.keys(counts).find(k=>counts[k]===3)); tiebreak=[three]; }
+  else if(isFlush){ rank=6; tiebreak = ranks.slice().reverse(); }
+  else if(isStraight){ rank=5; tiebreak=[Math.max(...ranks)]; }
+  else if(countVals[0]===3){ rank=4; const three=Number(Object.keys(counts).find(k=>counts[k]===3)); const kickers = Object.keys(counts).filter(k=>counts[k]===1).map(Number).sort((a,b)=>b-a); tiebreak=[three,...kickers]; }
+  else if(countVals[0]===2 && countVals[1]===2){ rank=3; const pairs = Object.keys(counts).filter(k=>counts[k]===2).map(Number).sort((a,b)=>b-a); const kicker=Number(Object.keys(counts).find(k=>counts[k]===1)); tiebreak=[...pairs,kicker]; }
+  else if(countVals[0]===2){ rank=2; const pair=Number(Object.keys(counts).find(k=>counts[k]===2)); const kickers = Object.keys(counts).filter(k=>counts[k]===1).map(Number).sort((a,b)=>b-a); tiebreak=[pair,...kickers]; }
+  else { rank=1; tiebreak = ranks.slice().reverse(); }
+  return {rank, name:getName(rank), tiebreak};
+}
+function compareHands(playerCards, dealerCards){
+  const p = evaluateHand(playerCards);
+  const d = evaluateHand(dealerCards);
+  if(p.rank > d.rank) return 1;
+  if(p.rank < d.rank) return -1;
+  for(let i=0;i<Math.max(p.tiebreak.length,d.tiebreak.length);i++){
+    const a = p.tiebreak[i]||0, b = d.tiebreak[i]||0;
+    if(a>b) return 1;
+    if(a<b) return -1;
+  }
+  return 0;
+}
+
+function cpuHoldStrategy(cards, difficulty){
+  const counts = {};
+  cards.forEach(c=>counts[c.rankIndex]=(counts[c.rankIndex]||0)+1);
+  const hold = new Set();
+  for(let i=0;i<cards.length;i++) if(counts[cards[i].rankIndex] >= 2) hold.add(i);
+  const suitCounts = {}; cards.forEach((c,i)=> suitCounts[c.suit]=(suitCounts[c.suit]||0)+1 );
+  const bestSuit = Object.keys(suitCounts).sort((a,b)=>suitCounts[b]-suitCounts[a])[0];
+  if(suitCounts[bestSuit] >= 4) cards.forEach((c,i)=>{ if(c.suit===bestSuit) hold.add(i); });
+  const ranks = cards.map(c=>c.rankIndex).sort((a,b)=>a-b);
+  for(let i=0;i<5;i++){
+    const subset = ranks.slice(0,4);
+    if((subset[3]-subset[0])<=4) { cards.forEach((c, idx)=> { if(subset.includes(c.rankIndex)) hold.add(idx); }); }
+  }
+  if(difficulty >= 2){
+    if(Object.values(counts).every(v=>v===1)){
+      const sortedIdx = cards.map((c,i)=>({i,rank:c.rankIndex})).sort((a,b)=>b.rank-a.rank).slice(0, difficulty>=3?3:2);
+      sortedIdx.forEach(x=> hold.add(x.i));
+    }
+  }
+  if(difficulty >= 4){
+    // VIP: very aggressive strategy
+    const hasHigh = cards.some(c=>c.rankIndex >= 10);
+    if(!hasHigh && Object.values(counts).every(v=>v===1)){
+      cards.forEach((c,i)=>{ if(c.rankIndex >= 8) hold.add(i); });
+    }
+  }
+  return hold;
+}
+
+function doDraw(){
+  if(state.stage !== 'turn') return;
+  const replacements = [];
+  for(let i=0;i<5;i++) if(!state.hold.has(i)) replacements.push(i);
+  const newCards = draw(replacements.length);
+  replacements.forEach((idx,i)=> state.player[idx] = newCards[i]);
+  const cpuHold = cpuHoldStrategy(state.dealer, state.selectedTable ? state.selectedTable.difficulty : 0);
+  const cpuReplacements = [];
+  for(let i=0;i<5;i++) if(!cpuHold.has(i)) cpuReplacements.push(i);
+  const cpuNew = draw(cpuReplacements.length);
+  cpuReplacements.forEach((idx,i)=> state.dealer[idx] = cpuNew[i]);
+
+  if(state.turn < 3){
+    state.turn++;
+    state.hold = new Set();
+    resultEl.textContent = `ターン ${state.turn} - カードを保持して「ドロー」`;
+  } else {
+    state.stage = 'show';
+    drawBtn.disabled = true;
+    dealBtn.disabled = false;
+    const res = compareHands(state.player, state.dealer);
+    const pEval = evaluateHand(state.player);
+    const dEval = evaluateHand(state.dealer);
+    let text = '';
+    if(res>0){ state.balance += state.bet*2; state.stats.win++; text = `勝ち！(${pEval.name} > ${dEval.name})`; }
+    else if(res<0){ state.stats.lose++; text = `負け… (${pEval.name} < ${dEval.name})`; }
+    else { state.balance += state.bet; state.stats.tie++; text = `引き分け (${pEval.name} = ${dEval.name})`; }
+    resultEl.textContent = text;
+    handLabel.textContent = pEval.name;
+    addHistory({player:state.player.slice(), dealer:state.dealer.slice(), result:text});
+    saveToLocal();
+  }
+  render();
+}
+
+function addHistory(entry){
+  const el = document.createElement('div');
+  el.className = 'hand-highlight';
+  const ph = entry.player.map(c=>c.rank+c.suit).join(' ');
+  const dh = entry.dealer.map(c=>c.rank+c.suit).join(' ');
+  el.innerHTML = `<div style="display:flex;justify-content:space-between"><div class="small">P: ${ph}</div><div class="small">CPU: ${dh}</div></div><div class="small" style="margin-top:6px">${entry.result}</div>`;
+  historyEl.appendChild(el);
+  if(historyEl.children.length>50) historyEl.removeChild(historyEl.firstChild);
+}
+
+function newRound(){
+  if(!state.selectedTable){ showToast('テーブルを選択してください', 'info'); return; }
+  state.stage='idle';
+  state.player=[]; state.dealer=[]; state.deck=[];
+  state.hold=new Set();
+  state.turn = 0;
+  resultEl.textContent='ベットしてディールしてください';
+  handLabel.textContent='-';
+  drawBtn.disabled = true;
+  dealBtn.disabled = false;
+  render();
+}
+
+/* ローカルストレージ保存（IndexedDB より安定） */
+function saveToLocal(){
+  const payload = {
+    balance: state.balance,
+    stats: state.stats,
+    theme: state.theme,
+    cardSkin: state.cardSkin,
+    selectedTableId: state.selectedTable ? state.selectedTable.id : null,
+    purchases: state.purchases,
+    lastBonus: state.lastBonus || null
+  };
+  localStorage.setItem('poker_data', JSON.stringify(payload));
+}
+
+function loadFromLocal(){
+  const saved = localStorage.getItem('poker_data');
+  if(!saved) return false;
+  try{
+    const p = JSON.parse(saved);
+    if(p.balance!=null) state.balance = p.balance;
+    if(p.stats) state.stats = p.stats;
+    if(p.purchases) state.purchases = p.purchases;
+    if(p.theme && (state.purchases[p.theme] || p.theme === 'classic')) state.theme = p.theme;
+    if(p.cardSkin && (state.purchases[p.cardSkin] || p.cardSkin === 'classic')) state.cardSkin = p.cardSkin;
+    if(p.selectedTableId){
+      const t = TABLES.find(x=>x.id===p.selectedTableId);
+      if(t) state.selectedTable = {...t};
+    }
+    if(p.lastBonus) state.lastBonus = p.lastBonus;
+    // apply theme
+    if(state.theme){
+      const bg = THEME_MAP[state.theme] || THEME_MAP.classic;
+      document.documentElement.style.setProperty('--bg-1', bg.bg1);
+      document.documentElement.style.setProperty('--bg-2', bg.bg2);
+    }
+    return true;
+  }catch(e){ return false; }
+}
+
+/* イベント */
+dealBtn.addEventListener('click', startDeal);
+drawBtn.addEventListener('click', ()=>{
+  drawBtn.disabled = true;
+  setTimeout(()=> drawBtn.disabled = false, 200);
+  doDraw();
+});
+newRoundBtn.addEventListener('click', newRound);
+betInput.addEventListener('change', ()=>{ 
+  const minAllowed = state.selectedTable ? (state.selectedTable.min || 1) : 1;
+  state.bet = Math.max(minAllowed, Math.min(state.balance, Number(betInput.value)||minAllowed)); 
+  betInput.value = state.bet; 
+});
+
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='d') dealBtn.click();
+  if(e.key===' '){ if(!drawBtn.disabled) drawBtn.click(); }
+});
+
+/* --- 15分ボーナス機能 --- */
+const BONUS_INTERVAL = 15 * 60 * 1000; // 15分
+const BONUS_AMOUNT = 200;
+const bonusBtn = (function(){ try { return $('bonusBtn'); } catch(e){ return null; } })();
+const bonusTimerEl = (function(){ try { return $('bonusTimer'); } catch(e){ return null; } })();
+
+function canClaimBonus(){ return !state.lastBonus || (Date.now() - state.lastBonus) >= BONUS_INTERVAL; }
+function formatMs(ms){
+  const s = Math.ceil(ms/1000);
+  const m = Math.floor(s/60); const sec = s%60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function updateBonusUI(){
+  if(!bonusBtn || !bonusTimerEl) return;
+  if(canClaimBonus()){
+    bonusBtn.disabled = false;
+    bonusTimerEl.textContent = 'ボーナス受け取り可能';
+  } else {
+    bonusBtn.disabled = true;
+    const rem = BONUS_INTERVAL - (Date.now() - state.lastBonus);
+    bonusTimerEl.textContent = `次回: ${formatMs(rem)}`;
+  }
+}
+
+if(bonusBtn){
+  bonusBtn.addEventListener('click', ()=>{
+    if(!canClaimBonus()) return;
+    state.balance += BONUS_AMOUNT;
+    state.lastBonus = Date.now();
+    saveToLocal();
+    render();
+    updateBonusUI();
+    showToast(`${BONUS_AMOUNT} ゴールドを受け取りました`, 'success');
+  });
+  setInterval(updateBonusUI, 1000);
+}
+
+/* 初期化 */
+(function init(){
+  state.purchases = { classic: true };
+  loadFromLocal();
+  // ensure defaults
+  if(!state.theme) state.theme = 'classic';
+  if(!state.cardSkin) state.cardSkin = 'classic';
+  // set bet input min according to selected table
+  if(state.selectedTable && !state.selectedTable.betFixed){
+    betInput.min = state.selectedTable.min || 1;
+  } else {
+    betInput.min = 1;
+  }
+  tableOverlay.style.display = state.selectedTable ? 'none' : 'flex';
+  render();
+  updateBonusUI();
+})();
+</script>
+</body>
+</html>
